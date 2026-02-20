@@ -39,6 +39,17 @@ class Engine {
   return `${h}:${String(m).padStart(2,'0')}:${s.padStart(5,'0')}`;
   }
 
+  formatDuration(seconds) {
+  const total = Math.floor(seconds);
+  const menit = Math.floor(total / 60);
+  const detik = total % 60;
+
+  if (menit > 0) {
+    return `${menit} menit ${detik} detik`;
+  } else {
+    return `${detik} detik`;
+  }
+ }
 async getDuration(file) {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(file, (err, metadata) => {

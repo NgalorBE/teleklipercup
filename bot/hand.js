@@ -143,8 +143,8 @@ if (result?.status === "SHORT_VIDEO") {
   return bot.sendMessage(chatId,
 `⚠️ Durasi video kurang!
 
-Durasi TTS : ${result.ttsDur.toFixed(1)}s
-Durasi Video : ${result.vidDur.toFixed(1)}s
+Durasi TTS : ${engine.formatDuration(result.ttsDur)}
+Durasi Video : ${engine.formatDuration(result.vidDur)}
 
 Ketik:
 /lanjut → untuk loop video
@@ -201,8 +201,8 @@ if (result?.status === "SHORT_VIDEO") {
   return bot.sendMessage(chatId,
 `⚠️ Durasi video kurang!
 
-Durasi TTS : ${result.ttsDur.toFixed(1)}s
-Durasi Video : ${result.vidDur.toFixed(1)}s
+Durasi TTS : ${engine.formatDuration(result.ttsDur)}
+Durasi Video : ${engine.formatDuration(result.vidDur)}
 
 Ketik:
 /lanjut → untuk loop video
