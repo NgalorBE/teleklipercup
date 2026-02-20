@@ -316,9 +316,28 @@ async renderFinal(){
     this.finalVideo
   ]);
 
-  await this.boostFinalAudio();
+await this.boostFinalAudio();
 
-  console.log("🔥 FINAL VIDEO READY:",this.finalVideo);
+fs.readdir(this.voiceDir, (err, files) => {
+  if (err) {
+    console.log("Gagal baca folder:", err);
+    return;
+  }
+
+  files.forEach(file => {
+    if (file.endsWith(".mp3")) {
+      const filePath = path.join(this.voiceDir, file);
+      try {
+        fs.unlinkSync(filePath);
+        console.log("🗑️ Deleted:", file);
+      } catch (err) {
+        console.log("Gagal hapus:", file);
+      }
+    }
+  });
+});
+
+console.log("🔥 FINAL VIDEO READY:", this.finalVideo);
 }
 }
 module.exports = new Engine();
