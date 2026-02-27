@@ -1,7 +1,7 @@
 const readline = require("readline");
 require("dotenv").config();
 
-const RUN_KEY = process.env.RUN_KEY || "NGALORAja9";
+const RUN_KEY = process.env.RUN_KEY || "pe";
 
 const rl = readline.createInterface({
   input: process.stdin,

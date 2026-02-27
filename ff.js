@@ -49,7 +49,13 @@ class Engine {
   } else {
     return `${detik} detik`;
   }
- }
+}
+
+getWordDuration(wordCount) {
+  const base = 0.6 - (wordCount * 0.69);
+  return Math.max(base, 0.38);
+}
+
 async getDuration(file) {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(file, (err, metadata) => {
@@ -174,64 +180,62 @@ async generateSubtitle(text) {
     .split(/\n|\./)
     .map(s => s.trim())
     .filter(s => s.length > 0);
+
   const highlightColor = await this.getDominantColor();
   const totalDuration = await this.getDuration(this.ttsAudio);
-  const allWords = sentences.join(" ").split(" ");
-  const totalWords = allWords.length;
-  const perWordGlobal = (totalDuration / totalWords);
 
-  let currentTime = 0.15;
+  const totalWords = sentences.join(" ").split(/\s+/).length;
+  const globalPerWord = totalDuration / totalWords;
+
+  let currentTime = 0.2;
   let lines = [];
 
   sentences.forEach(sentence => {
 
-    const words = sentence.split(" ");
-    const sentenceDuration = perWordGlobal * words.length;
+    const words = sentence.split(/\s+/);
 
-    let karaokeText = "";
-    let wordOffset = 0;
+    words.forEach((_, activeIndex) => {
 
-    words.forEach(word=>{
-      const k = Math.floor(perWordGlobal * 100);
-      const ms = k * 10;
+      const perWord = globalPerWord * 0.95;
+      const startTime = currentTime;
+      const endTime = currentTime + perWord;
 
-      const start = wordOffset;
-      const end   = wordOffset + ms;
+    let lineText = "{\\rDefault}";
 
-      karaokeText += `{\\k${k}` +
-        `\\bord0\\blur0\\1c&HFFFFFF&` +
-        `\\t(${start},${end},\\1c&H${highlightColor}&\\3c&H${highlightColor}&\\bord1\\blur4)` +
-        `\\t(${end},${end+1},\\1c&HFFFFFF&\\bord0\\blur0)` +
-      `}${word} `;
+    words.forEach((word, index) => {
 
-      wordOffset += ms;
+      if (index === activeIndex) {
+        lineText += `{\\bord6\\blur10\\3c&H${highlightColor}&}${word}{\\bord2\\blur0\\3c&H000000&} `;
+      } else {
+        lineText += `{\\bord2\\blur0\\3c&H000000&}${word} `;
+      }
+
     });
 
-    const startTime = currentTime;
-    const endTime   = currentTime + sentenceDuration;
-
     lines.push(
-      `Dialogue: 0,${this.format(startTime)},${this.format(endTime)},Default,,0,0,0,,${karaokeText}`
+      `Dialogue: 0,${this.format(startTime)},${this.format(endTime)},Default,,0,0,0,,${lineText.trim()}`
     );
 
     currentTime = endTime;
   });
 
+})
+
   const header = `[Script Info]
 ScriptType: v4.00+
 PlayResX: 576
 PlayResY: 1024
+ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding
-Style: Default,Arial,35,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,0,0,5,40,40,200,0
-
+Style: Default,Arial,42,&H00FFFFFF,&H00000000,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,2,0,2,60,60,120,1
 [Events]
 Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text`;
 
   fs.writeFileSync(this.subtitleFile, header + "\n" + lines.join("\n"));
 
-  console.log("✅ Subtitle ready");
+  console.log("✅ Subtitle Siapp");
 }
 
 async boostFinalAudio() {
@@ -262,7 +266,7 @@ async loopVideo(loopCount) {
   await this.runFFmpeg([
     "-y",
     "-stream_loop", (loopCount - 1).toString(),
-    "-i", this.videoPath,
+    "-i", "./stor/temp/input.mp4",
     "-c", "copy",
     loopedOutput
   ]);
@@ -272,28 +276,28 @@ async loopVideo(loopCount) {
   console.log("✅ Loop selesai:", this.videoPath);
 }
 
-async renderFinal(){
-
+async renderFinal() {
   console.log("🎬 Checking duration...");
 
   const ttsDur = await this.getDuration(this.ttsAudio);
   const vidDur = await this.getDuration(this.videoPath);
 
   if (ttsDur > vidDur) {
-
     console.log("⚠️ Video lebih pendek dari TTS");
-
-    return {
-      status: "SHORT_VIDEO",
-      ttsDur,
-      vidDur
-    };
+    return { status: "SHORT_VIDEO", ttsDur, vidDur };
   }
 
   console.log("🎬 Rendering final cinematic...");
 
   const duration = ttsDur;
   const imageStart = duration - 0.9;
+
+  const probe = await new Promise((res, rej) => {
+    ffmpeg.ffprobe(this.videoPath, (err, data) => err ? rej(err) : res(data));
+  });
+
+  const width = probe.streams[0].width;
+  const height = probe.streams[0].height;
 
   await this.runFFmpeg([
     "-y",
@@ -302,53 +306,42 @@ async renderFinal(){
     "-i", this.endImage,
     "-t", duration.toString(),
 
-"-filter_complex",
-`[0:v]eq=contrast=1.1:brightness=-0.03:saturation=1.25,colorbalance=rs=0.08:gs=-0.02:bs=0.12,ass=${this.subtitleFile}[base];` +
-`[2:v]scale=144:144,format=yuva420p,colorchannelmixer=aa=0.6[img];` +
-`[base][img]overlay=x=(main_w-w)/2:y=main_h-h-50:enable='gte(t,${imageStart})'[v];` +
-`[0:a]volume=1[a0];` +
-`[1:a]volume=1.8[a1];` +
-`[a0][a1]amix=inputs=2:duration=shortest[aout]`,
+    "-filter_complex",
+    `[0:v]eq=contrast=1.2:brightness=-0.03:saturation=1.4,hue=h=40,colorbalance=rs=0.2:gs=-0.1:bs=0.25,curves=preset=medium_contrast,ass=${this.subtitleFile}[base];` +
+    `[2:v]scale=144:144,format=yuva420p,colorchannelmixer=aa=0.6[img];` +
+    `[base][img]overlay=x=(main_w-w)/2:y=main_h-h-50:enable='gte(t,${imageStart})'[v];` +
+    `[0:a]volume=1[a0];` +
+    `[1:a]volume=1.8[a1];` +
+    `[a0][a1]amix=inputs=2:duration=longest[aout]`,
 
-    "-map","[v]",
-    "-map","[aout]",
+    "-map", "[v]",
+    "-map", "[aout]",
 
-    "-c:v","libx264",
-    "-profile:v","baseline",
-    "-level","3.0",
-    "-pix_fmt","yuv420p",
-    "-preset","veryfast",
-    "-crf","23",
+    "-c:v", "libx264",
+    "-profile:v", "high",
+    "-level", "4.1",
+    "-pix_fmt", "yuv420p",
+    "-preset", "veryfast",
+    "-crf", "23",
 
-    "-c:a","aac",
-    "-b:a","256k",
+    "-c:a", "aac",
+    "-b:a", "256k",
 
-    "-movflags","+faststart",
+    "-movflags", "+faststart",
     this.finalVideo
   ]);
 
-await this.boostFinalAudio();
+if (fs.existsSync(this.ttsAudio)) {
+  fs.unlinkSync(this.ttsAudio);
+}
 
-fs.readdir(this.voiceDir, (err, files) => {
-  if (err) {
-    console.log("Gagal baca folder:", err);
-    return;
-  }
+if (fs.existsSync(this.subtitleFile)) {
+  fs.unlinkSync(this.subtitleFile);
+}
 
-  files.forEach(file => {
-    if (file.endsWith(".mp3")) {
-      const filePath = path.join(this.voiceDir, file);
-      try {
-        fs.unlinkSync(filePath);
-        console.log("🗑️ Deleted:", file);
-      } catch (err) {
-        console.log("Gagal hapus:", file);
-      }
-    }
-  });
-});
+  await this.boostFinalAudio();
 
-console.log("🔥 FINAL VIDEO READY:", this.finalVideo);
+  console.log("🔥 FINAL VIDEO READY:", this.finalVideo);
 }
 }
 module.exports = new Engine();

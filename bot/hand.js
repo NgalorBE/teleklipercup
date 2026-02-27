@@ -12,29 +12,29 @@ let shortVideoData = null;
 
 module.exports = function (bot) {
 
-  bot.onText(/\/start/, (msg) => {
-    bot.sendMessage(msg.chat.id,
-      "🎬 Kirim link TikTok + teks cerita tanpa tanda - dll Cup!\Gunakan . untuk baris baru tanpa ada spasi Okok\nContoh:\nhttps://vt.tiktok.com/xxxx Cerita kamu di sini...");
-  });
-
-bot.onText(/\/lanjut/, async (msg) => {
-
+bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
 
   if (msg.from.id !== config.OWNER_ID) {
-    return bot.sendMessage(chatId, "❌ Kamu Bukan Orang Baik");
+    return await bot.sendMessage(chatId, "❌ Kamu Bukan Rucup", { reply_to_message_id: msg.message_id });
   }
-  await bot.sendMessage(chatId, "👨‍💻 Ini Rucup, memulai proses..");
+
+  await bot.sendMessage(chatId,
+    `🎬 Welcome to TeleKlip Cup\n\nKirim:\n🔗 Link TikTok\n📝 Teks cerita (tanpa tanda - dll)\n\nGunakan titik (.) untuk baris baru tanpa spasi.\n\nContoh:\nhttps://vt.tiktok.com/xxxx Cerita kamu di sini..`,
+    { reply_to_message_id: msg.message_id }
+  );
+bot.onText(/\/lanjut/, async (msg) => {
+  const chatId = msg.chat.id;
 
   if (!shortVideoData) {
-    return bot.sendMessage(chatId, "❌ Tidak ada proses yang perlu dilanjutkan.");
+    return await bot.sendMessage(chatId, "❌ Tidak ada proses yang perlu dilanjutkan.", { reply_to_message_id: msg.message_id });
   }
 
   if (queue.isRunning()) {
-    return bot.sendMessage(chatId, "⏳ Masih ada proses berjalan.");
+    return await bot.sendMessage(chatId, "⏳ Masih ada proses berjalan.", { reply_to_message_id: msg.message_id });
   }
 
-  bot.sendMessage(chatId, "🔁 Melakukan loop video..");
+  await bot.sendMessage(chatId, "🔁 Melakukan loop video..", { reply_to_message_id: msg.message_id });
 
   queue.run(async () => {
     try {
@@ -63,7 +63,7 @@ bot.onText(/\/lanjut/, async (msg) => {
       bot.sendMessage(chatId, "❌ Error saat proses lanjut.");
     }
   });
-
+});
 });
 
   bot.on("text", async (msg) => {
@@ -140,7 +140,7 @@ if (result?.status === "SHORT_VIDEO") {
 
   shortVideoData = result;
 
-  return bot.sendMessage(chatId,
+  return await bot.sendMessage(chatId,
 `⚠️ Durasi video kurang!
 
 Durasi TTS : ${engine.formatDuration(result.ttsDur)}
@@ -148,13 +148,15 @@ Durasi Video : ${engine.formatDuration(result.vidDur)}
 
 Ketik:
 /lanjut → untuk loop video
-atau kirim link TikTok baru`
-  );
+atau kirim link TikTok baru`,
+{ reply_to_message_id: msg.message_id });
 }
 
 console.log("✅ Video selesai:", engine.finalVideo);
-
-await bot.sendVideo(chatId, engine.finalVideo);
+await bot.sendVideo(chatId, engine.finalVideo, {
+  caption: "🚀 Render selesai!\nSilakan cek hasilnya 👇",
+  reply_to_message_id: msg.message_id
+});
 
           } catch (err) {
             console.log("❌ Error di queue:", err);
@@ -177,28 +179,28 @@ await bot.sendVideo(chatId, engine.finalVideo);
     }
 
     if (queue.isRunning()) {
-      return bot.sendMessage(chatId, "⏳ Masih ada proses berjalan.");
+      return bot.sendMessage(chatId, "⏳ Masih ada proses berjalan.", { reply_to_message_id: msg.message_id });
     }
 
-    bot.sendMessage(chatId, "🧠 Memproses...");
+    bot.sendMessage(chatId, "🧠 Memproses..");
 
     queue.run(async () => {
       try {
 
-        console.log("🎤 Generate TTS...");
+        console.log("🎤 Generate TTS..");
         await engine.generateTTS(currentText);
 
-        console.log("📝 Generate Subtitle...");
+        console.log("📝 Generate Subtitle..");
         await engine.generateSubtitle(currentText);
 
-console.log("🎬 Rendering Final Video...");
+console.log("🎬 Rendering Final Video..");
 const result = await engine.renderFinal();
 
 if (result?.status === "SHORT_VIDEO") {
 
   shortVideoData = result;
 
-  return bot.sendMessage(chatId,
+  return await bot.sendMessage(chatId,
 `⚠️ Durasi video kurang!
 
 Durasi TTS : ${engine.formatDuration(result.ttsDur)}
@@ -206,13 +208,15 @@ Durasi Video : ${engine.formatDuration(result.vidDur)}
 
 Ketik:
 /lanjut → untuk loop video
-atau kirim link TikTok baru`
-  );
+atau kirim link TikTok baru`,
+{ reply_to_message_id: msg.message_id });
 }
 
 console.log("✅ Video selesai:", engine.finalVideo);
-
-await bot.sendVideo(chatId, engine.finalVideo);
+await bot.sendVideo(chatId, engine.finalVideo, {
+  caption: "🚀 Render selesai!\nSilakan cek hasilnya 👇",
+  reply_to_message_id: msg.message_id
+});
 
       } catch (err) {
         console.log("❌ Error:", err);
@@ -221,5 +225,4 @@ await bot.sendVideo(chatId, engine.finalVideo);
     });
 
   });
-
 };
